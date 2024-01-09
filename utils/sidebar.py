@@ -12,6 +12,7 @@ UPDATE_CONFIG_LAMBDA = os.getenv('UPDATE_CONFIG_LAMBDA')
 QUERY_CONFIG_LAMBDA = os.getenv ('QUERY_CONFIG_LAMBDA')
 SNOWBENCH_URL = os.getenv ('SNOWBENCH_URL')
 LOGO_NAME = os.getenv("LOGO_NAME")  
+OPENAI_CHOICE = os.getenv("OPENAI_CHOICE")  
 import pinecone
 
 import streamlit as st
@@ -99,16 +100,19 @@ def create_sidebar (st):
     text2Image_source = ['text2Image']
     other_sources_default = ['KR']
     embedding_options = ['text-embedding-ada-002']
+    LLM_options = ['Azure', 'Open AI']
     persistence_options = [ 'Pinecone']
     model_options = ['gpt-3.5-turbo','gpt-4', 'gpt-4-1106-preview','gpt-3.5-turbo-1106', 'gpt-3.5-turbo-16k']
+    azure_model_options = ['gpt4', 'gpt432k', 'gpt35turbo', 'gpt35turbo16k']
     # 
     url = "https://www.persistent.com/"
+    show_text_area = st.checkbox("Show text area for longer prompts")
     
     with st.sidebar.expander("Select Your Domain"):
     # Radio button with options
         domain_choice = st.radio(
             "Choose a sector:",
-            ('Banking', 'Healthcare', 'CMT', 'Huddle')  # Options for the radio button
+            ('Huddle','Banking', 'Healthcare', 'CMT' )  # Options for the radio button
         )
     kr_repos_list = get_repository_list(domain_choice)
 
@@ -119,8 +123,11 @@ def create_sidebar (st):
         st.session_state['kr_repos_list'] = kr_repos_list
     with st.sidebar.expander(" 🛠️ LLM Configurations ", expanded=False):
     # Option to preview memory store
-        show_text_area = st.checkbox("Show text area for longer prompts")
-        model_name  = st.selectbox(label='LLM:', options=model_options, help='GPT-4 in waiting list 🤨')
+        LLM_choice = st.radio('LLM:', LLM_options, help = "Choose Azure or Open AI...")
+        if LLM_choice == "Open AI":
+            model_name  = st.selectbox(label='Model:', options=model_options, help='Choose from the available Models')
+        else:
+            model_name  = st.selectbox(label='Model:', options=azure_model_options, help='Choose from the available Models')
         embedding_model_name  = st.radio('Embedding:', options=embedding_options, help='Option to change embedding model, keep in mind to match with the LLM 🤨')
         persistence_choice = st.radio('Persistence', persistence_options, help = "Using Pinecone...")
         chunk_size = st.number_input ("Chunk Size",value= 1000)
@@ -128,7 +135,7 @@ def create_sidebar (st):
         temperature_value = st.slider('Temperature', 0.0, 1.0, 0.1)
         k_similarity_num = st.number_input ("K value",value= 2)
         k_similarity = int(k_similarity_num)
-        max_output_tokens = st.number_input ("Max Output Tokens",value=25)
+        max_output_tokens = st.number_input ("Max Output Tokens",value=200)
 
     with st.sidebar.expander("📂 Manage Repos", expanded=False):
         for i, repo in enumerate(kr_repos_list):
@@ -153,7 +160,7 @@ def create_sidebar (st):
     macro_view = None
     youtube_url = None
     uploaded_files = None
-    trigger_inference = None
+    trigger_image_inference = None
     upload_kr_docs_button = None
     repo_selected_for_upload = None
     kr_repos_chosen = None
@@ -186,7 +193,7 @@ def create_sidebar (st):
                 'Image Generation:',
                 text2Image_source               
               )
-            trigger_inference = st.sidebar.checkbox("Run Image Inference")
+            trigger_image_inference = st.sidebar.checkbox("Run Image Inference")
             st.sidebar.link_button("Explore SnowBench ❄️", SNOWBENCH_URL, help = "Ask questions to SnowFlake warehouse in natural language",)
 
             
@@ -244,7 +251,7 @@ def create_sidebar (st):
         chunk_overlap,
         temperature_value,
         show_text_area,
-        trigger_inference,
+        trigger_image_inference,
         domain_choice,
         privacy_setting    
         

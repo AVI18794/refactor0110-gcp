@@ -22,6 +22,7 @@ def calculate_cost_fixed(model, input_tokens, output_tokens):
 
     # Calculating total cost
     total_cost = (input_cost_per_1000 * (input_tokens / 1000)) + (output_cost_per_1000 * (output_tokens / 1000))
+    total_cost = round(total_cost, 6)
     return total_cost
 
 

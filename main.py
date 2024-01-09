@@ -2,15 +2,13 @@ import os
 import boto3
 import json
 import dotenv
-
-from openai import OpenAI
-import PyPDF2
 import io
 
-import pandas as pd
-from langchain.chat_models import ChatOpenAI
-
 import streamlit as st
+
+from openai import OpenAI
+import pandas as pd
+
 from langchain.vectorstores import Pinecone
 import pinecone
 
@@ -19,50 +17,29 @@ max_input_tokens_32k = 30000
 max_input_tokens_64k = 60000
 max_input_tokens_128k = 120000
 
-from langchain.chains import LLMChain 
-
-
-from langchain.embeddings.openai import OpenAIEmbeddings
-
-from langchain.chains.conversation.prompt import ENTITY_MEMORY_CONVERSATION_TEMPLATE
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-from langchain.chains.conversation.memory import ConversationEntityMemory
-from langchain.agents import ZeroShotAgent, Tool, AgentExecutor
-
-import streamlit as st
-# from streamlit_chat import message
-
-from langchain.document_loaders import Docx2txtLoader
-from langchain.document_loaders import UnstructuredPowerPointLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-
-from langchain.document_loaders import YoutubeLoader
-from langchain.utilities import SerpAPIWrapper
 
 from utils.sidebar import create_sidebar
 from utils.initialize_session import initialize_session
 from utils.clear_session import clear_session
+from utils.callLambda import invoke_lambda
 from utils.pricing import calculate_cost_fixed
-from utils.trim_conversation_manage_mem import trim_conversation_history
+from utils.getPineconeIndex import get_pinecone_index
 from utils.get_num_tokens_from_string import get_num_tokens_from_string
+from utils.getAzureOpenAIClient import get_openai_azure_core_client
+from utils.getOpenAIClient import get_openai_core_client
+from utils.getAWSClient import get_aws_client
+from utils.extractFilePaths import extract_distinct_file_paths
+
 from processors.process_text2image import process_text2image
 from processors.process_huggingface import process_huggingface
-
 from processors.process_wikipedia import process_wikipedia
 from processors.process_openai import call_openai
 from processors.process_image_infer import upload_to_s3_refactor, generate_presigned_url, get_inference
-
-
 
 dotenv.load_dotenv(".env")
 env_vars = dotenv.dotenv_values()
 for key in env_vars:
     os.environ[key] = env_vars[key]
-
-
-SERPAPI_API_KEY=os.getenv('SERPAPI_API_KEY')
 
 aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
 aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
@@ -75,37 +52,6 @@ PROMPT_UPDATE_LAMBDA = os.getenv('PROMPT_UPDATE_LAMBDA')
 PROMPT_QUERY_LAMBDA = os.getenv('PROMPT_QUERY_LAMBDA')
 lambda_client = boto3.client('lambda', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
 
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION')
-# AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
-# AZURE_OPENAI_API_BASE = os.getenv('AZURE_OPENAI_API_BASE')
-# AZURE_OPENAI_API_VERSION_GPT432K = os.getenv('AZURE_OPENAI_API_VERSION_GPT432K')
-# AZURE_OPENAI_API_TYPE = os.getenv('AZURE_OPENAI_API_TYPE')
-# AZURE_EMBEDDING_MODEL_DEPLOYMENT = os.getenv('AZURE_EMBEDDING_MODEL_DEPLOYMENT')
-
-# from langchain.chat_models import AzureChatOpenAI
-# from langchain.schema import (
-#     SystemMessage,
-#     HumanMessage,
-#     AIMessage
-# )
-
-
-client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
-
-
-if SERPAPI_API_KEY:
-    serpapi_api_key = SERPAPI_API_KEY
-else:
-    print("SERPAPI_API_KEY key not found. Please make sure you have set the SERPAPI_API_KEY environment variable.")
-
-pinecone.init (
-    api_key = os.getenv('PINECONE_API_KEY'),
-    environment = os.getenv('PINECONE_ENVIRONMENT')    
-)
-
-
-memory = ConversationBufferMemory(return_messages=True)
 # Will come from AD
 user_name_logged = "Rajesh Ghosh"
 if 'curent_user' not in st.session_state:
@@ -135,7 +81,7 @@ if 'current_promptName' not in st.session_state:
     chunk_overlap,
     temperature_value,
     show_text_area,
-    trigger_inference,
+    trigger_image_inference,
     domain_choice,
     privacy_setting
    
@@ -145,66 +91,28 @@ if 'current_promptName' not in st.session_state:
 
 model=model_name
 
-llm = ChatOpenAI(model_name=model, temperature=temperature_value, max_tokens=max_output_tokens)
+
 
 clear_button = None
 #counter_placeholder.write(f"Total cost of this conversation: ${st.session_state['total_cost']:.5f}")
 if (task == 'Query'):
     clear_button = st.sidebar.button("Clear Conversation", key="clear")
-if 'entity_memory' not in st.session_state:
-    st.session_state['entity_memory'] = ConversationEntityMemory (llm=llm, k=k_similarity)
-Conversation = ConversationChain(llm=llm, prompt=ENTITY_MEMORY_CONVERSATION_TEMPLATE, memory=st.session_state['entity_memory'] )
 
-table_name = os.environ['PROCESS_TABLE']
-# Initialise session state variables
 initialize_session()
 
-# ***************************************************
 
-import tiktoken
-
-def get_num_tokens_from_string(string: str, encoding_name: str) -> int:
-    """Returns the number of tokens in a text string."""
-    encoding = tiktoken.get_encoding(encoding_name)
-    num_tokens = len(encoding.encode(string))
-    return num_tokens
-
-def trim_conversation_history(messages, max_messages=10, max_tokens=1000):
-    print ("In trim_conversation_history")
-    
-
-    trimmed_messages = messages[-max_messages:]  # Keep only the last 'max_messages' messages
-
-    total_tokens = 0
-    start_index = 0
-    for i, message in enumerate(reversed(trimmed_messages)):
-        message_tokens = get_num_tokens_from_string(message['content'], 'cl100k_base')
-        total_tokens += message_tokens
-        if total_tokens > max_tokens:
-            start_index = i
-            break
-
-    return trimmed_messages[-start_index:] if start_index > 0 else trimmed_messages
-
-def get_gpt_response(client, model_name, messages, source, domain_choice):
+def get_gpt_response(user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, source):
     print ("In get_gpt_response")
-
-    # Trim the conversation history to manage token and message limits
-    messages = trim_conversation_history(messages)
-    print (messages)
-    
-    message_content, input_tokens, output_tokens, total_tokens, cost = call_openai(user_name_logged, user_input, model_name, messages, domain_choice)
-    
-
-    
-        
+    max_messages = 12
+    # trimmed_messages = messages[-max_messages:]    
+    message_content, input_tokens, output_tokens, total_tokens, cost, promptId = call_openai(user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, None)
+    st.session_state.messages.append({"role": "assistant", "content": message_content})
+    st.session_state['current_promptName'] = promptId
+       
     data = {
         "source": source,
-        "response": message_content
-                    
+        "response": message_content                    
     }
-
-    # Convert the dictionary to a JSON string
     try:
         json_data = json.dumps(data)
         
@@ -217,7 +125,6 @@ def get_gpt_response(client, model_name, messages, source, domain_choice):
     st.sidebar.write(f"**Output Tokens:** {output_tokens}")
     st.sidebar.write(f"**Cost($):** {cost}")
     st.session_state['current_user'] = user_name_logged
-
 
     return json_data
 
@@ -234,13 +141,9 @@ if clear_button:
     print ("Clear button")
     clear_session()
 
-def process_CloudAssets(prompt, llm):
-    print("Processing Cloud Assets...")
 
-def process_GoogleDocs(prompt, llm):
-    print("Processing Google Docs...")
-    
 def create_text_splitter(chunk_size, chunk_overlap):
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
     return RecursiveCharacterTextSplitter(
     chunk_size=chunk_size,
     chunk_overlap=chunk_overlap,
@@ -251,16 +154,7 @@ class Document:
     def __init__(self, page_content, metadata):
         self.page_content = page_content
         self.metadata = metadata
-def extract_distinct_file_paths(documents):
-    file_paths = set()
-    metadata_present = False
 
-    for doc in documents:
-        if hasattr(doc, 'metadata') and isinstance(doc.metadata, dict) and "file_path" in doc.metadata:
-            file_paths.add(doc.metadata["file_path"])
-            metadata_present = True
-
-    return file_paths, metadata_present
 def transform_format_a_to_b(format_a):
     documents = []
     for match in format_a['matches']:
@@ -269,24 +163,42 @@ def transform_format_a_to_b(format_a):
         documents.append(Document(page_content, metadata))
     return documents
 
-def get_embedding(text, model="text-embedding-ada-002"):
-   from openai import OpenAI
-   client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
-   text = text.replace("\n", " ")
-   return client.embeddings.create(input = [text], model=model).data[0].embedding
+def get_embedding(text, model):
+    print ("In get_embedding")
+    import os
+    from openai import OpenAI        
+    dotenv.load_dotenv(".env")
+    env_vars = dotenv.dotenv_values()
+    for key in env_vars:
+        os.environ[key] = env_vars[key]
+        
+    OPENAI_CHOICE = os.getenv('OPENAI_CHOICE')
+    text = text.replace("\n", " ")
+
+    if OPENAI_CHOICE == "Azure":   
+        print ("In Azure")
+        AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv('AZURE_OPENAI_EMBEDDING_DEPLOYMENT') 
+        AZURE_OPENAI_VERSION = os.getenv('AZURE_OPENAI_VERSION')         
+        client = get_openai_azure_core_client (AZURE_OPENAI_VERSION)    
+        embeddings = client.embeddings.create(
+            model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+            input=[text]
+        )
+        embedding_value = embeddings.data[0].embedding
+        return embedding_value
+    else:
+        print ("In OpenAI")
+        client = get_openai_core_client ()        
+        return client.embeddings.create(input = [text], model=embedding_model_name).data[0].embedding
 
 
     
 
-def search_vector_store (persistence_choice, index_name, user_input, model, source, k_similarity, kr_repos_chosen, domain_choice):
-    print ('In search_vector_store', kr_repos_chosen)  
-      
-    # st.session_state.messages.append({"role": "assistant", "content": message_content})
-    
+def search_vector_store (user_name_logged, source, user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, persistence_choice, domain_choice):
+    print ('In search_vector_store', kr_repos_chosen, persistence_choice )  
+        
     if 'chat_history_upload' not in st.session_state:   
         st.session_state['chat_history_upload'] = []
-        
-    # st.session_state['chat_history_upload'].append(user_input)
     st.session_state['chat_history_upload'].insert(0, user_input)
     print (st.session_state['chat_history_upload'])
 
@@ -302,22 +214,10 @@ def search_vector_store (persistence_choice, index_name, user_input, model, sour
     total_elements = len(unique_chat_history)
     result = ' '.join(unique_chat_history[:n]) if n <= total_elements else ' '.join(unique_chat_history)
     print(result)
-    dotenv.load_dotenv(".env")
-    env_vars = dotenv.dotenv_values()
-    for key in env_vars:
-        os.environ[key] = env_vars[key]
-    pinecone.init (
-        api_key = os.getenv('PINECONE_API_KEY'),
-        environment = os.getenv('PINECONE_ENVIRONMENT')   
-    )
-    pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
-
-    index_name = pinecone_index_name
     
-    index = pinecone.Index(index_name)
+    index = get_pinecone_index ()
 
-    prompt_embedding = get_embedding (result,model=embedding_model_name)
-    
+    prompt_embedding = get_embedding (result,embedding_model_name)
 
     similarity_search_result = index.query(
         [prompt_embedding],
@@ -328,21 +228,19 @@ def search_vector_store (persistence_choice, index_name, user_input, model, sour
         include_metadata=True
     )
     
-    formatted_documents = transform_format_a_to_b(similarity_search_result)
-    source_knowledge = "\n".join([x.page_content for x in formatted_documents])
+    
+    similarity_search_output_documents = transform_format_a_to_b(similarity_search_result)
+    distinct_file_paths, metadata_present = extract_distinct_file_paths(similarity_search_output_documents)
+    source_knowledge = "\n".join([x.page_content for x in similarity_search_output_documents])
     # feed into an augmented prompt
     augmented_prompt = f"""Using the contexts below, answer the query.
 
-    Contexts:
-    {source_knowledge}
+        Contexts:
+        {source_knowledge}
 
-    Query: {result}"""
+        Query: {result}"""
     
-    from langchain.schema import (
-        SystemMessage,
-        HumanMessage,
-        AIMessage
-    )
+
     messages=[
         {"role": "system", "content": "You are a helpful assistant"},
   
@@ -352,8 +250,10 @@ def search_vector_store (persistence_choice, index_name, user_input, model, sour
        
     messages.append(userMessage)
 
-    message_content, input_tokens, output_tokens, total_tokens, cost = call_openai(user_name_logged, user_input, model_name, messages, domain_choice)
-    distinct_file_paths, metadata_present = extract_distinct_file_paths(formatted_documents)
+    message_content, input_tokens, output_tokens, total_tokens, cost, promptId = call_openai(user_name_logged, user_input, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, similarity_search_output_documents)
+    
+    st.session_state.messages.append({"role": "assistant", "content": message_content})
+    st.session_state['current_promptName'] = promptId
 
     if metadata_present:
         data = {
@@ -371,6 +271,7 @@ def search_vector_store (persistence_choice, index_name, user_input, model, sour
                        
         }
     # Convert the dictionary to a JSON string
+   
     json_data = json.dumps(data)
     st.sidebar.write(f"**Usage Info:** ")
     st.sidebar.write(f"**Model:** {model_name}")
@@ -425,6 +326,7 @@ def process_csv_file(file_path):
 
 def process_docx_file(file_path):
     print('Processing DOCX')
+    from langchain.document_loaders import Docx2txtLoader
     loader = Docx2txtLoader(file_path)
     docs = loader.load()
     for doc in docs:
@@ -442,6 +344,7 @@ def process_docx_file(file_path):
 def process_pptx_file(file_path):
     print('Processing PPTX')
     chunks = "dumy chunks"
+    from langchain.document_loaders import UnstructuredPowerPointLoader
     loader = UnstructuredPowerPointLoader(file_path)
     docs = loader.load()
     for doc in docs:
@@ -456,7 +359,7 @@ def process_pptx_file(file_path):
         print (f'Number of chuncks: {len(chunks)}')
     return chunks
 
-def process_github(prompt, llm):
+def process_github(prompt):
     from langchain.document_loaders import GitLoader
 
     loader = GitLoader(
@@ -468,59 +371,57 @@ def process_github(prompt, llm):
     data = loader.load()
     
 
-def process_google_search(prompt,llm):
+def process_google_search(prompt):
+   
     print ('In process Google', prompt)
- 
+    dotenv.load_dotenv(".env")
+    env_vars = dotenv.dotenv_values()
+    for key in env_vars:
+        os.environ[key] = env_vars[key]
+    SERPAPI_API_KEY = os.getenv('SERPAPI_API_KEY')
+    if SERPAPI_API_KEY:
+        serpapi_api_key = SERPAPI_API_KEY
+    else:
+        print("SERPAPI_API_KEY key not found. Please make sure you have set the SERPAPI_API_KEY environment variable.")
     
-    import json
+    from langchain.agents import Tool, AgentExecutor   
+    from langchain import SerpAPIWrapper
+    from langchain.agents import Tool,ConversationalChatAgent
+    from langchain.chat_models import ChatOpenAI
+    from langchain.memory import ConversationSummaryBufferMemory 
+
     search = SerpAPIWrapper()
+       
     tools = [
         Tool(
-            name = "Search",
+            name="Search",
             func=search.run,
-            description="useful for when you need to answer questions about current events"
+            description="useful for when you need to answer questions about current events. "
+                        "You should ask targeted questions"
         )
     ]
-    prefix = """Have a conversation with a human, answering the following questions as best you can. Provide a detailed answer. You have access to the following tools:"""
-    suffix = """Begin!"
-    {chat_history}
-    Question: {input}
-    {agent_scratchpad}"""
 
-    promptAgent = ZeroShotAgent.create_prompt(
-        tools,
-        prefix=prefix,
-        suffix=suffix,
-        input_variables=["input", "chat_history", "agent_scratchpad"],
-    )
-    if 'memory_google' not in st.session_state:
-        st.session_state['memory_google'] = ConversationBufferMemory(memory_key="chat_history")    
-   
-    llm_chain = LLMChain(llm=OpenAI(temperature=temperature_value), prompt=promptAgent)
-    agent = ZeroShotAgent(llm_chain=llm_chain, tools=tools, verbose=True)
-    agent_chain = AgentExecutor.from_agent_and_tools(
-        agent=agent, tools=tools, verbose=True, memory=st.session_state['memory_google'] 
-    )
-    #agent_chain = initialize_agent(tools, llm, agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION, verbose=True, memory=memory)
-    response = agent_chain.run(input=prompt)
-    if response is None:
-        response = "Sorry, no data found!"        
-    #agent = initialize_agent(tools, llm, agent="zero-shot-react-description", verbose=True)
-    #response = agent.run(prompt)
+    llm = ChatOpenAI(temperature=0, client=None)
+    memory = ConversationSummaryBufferMemory(llm=llm, memory_key="chat_history", return_messages=True, human_prefix="user", ai_prefix="assistant")  
+    system_prompt_template = " An AI Assistant .... "
 
-    source_mod = "Google"     
+    custom_agent = ConversationalChatAgent.from_llm_and_tools(llm=llm, tools=tools, system_message=system_prompt_template)
+    agent_executor = AgentExecutor.from_agent_and_tools(agent=custom_agent, tools=tools, memory=memory)
+    agent_executor.verbose = True
+
+    response = agent_executor.run(input= prompt)
+    source_mod = "Google"    
    
     data = {
         "source": source_mod,
         "response": response
     } 
-
     json_data = json.dumps(data)  
     return json_data
 
-
 def process_YTLinks(youtube_video_url, user_input):
-    print ('In process_YTLinks New', user_input)   
+    print ('In process_YTLinks New', user_input) 
+    from langchain.document_loaders import YoutubeLoader  
     loader = YoutubeLoader.from_youtube_url(youtube_video_url, add_video_info=False)
     
     youtube_transcript_list = loader.load()
@@ -536,6 +437,7 @@ def process_YTLinks(youtube_video_url, user_input):
         environment = os.getenv('PINECONE_ENVIRONMENT')   
     )
     pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
+    # append_metadata(chunks, file_path, repo_selected_for_upload, privacy_setting)
 
     
  
@@ -587,6 +489,7 @@ def append_metadata(documents, file_path, repo_selected_for_upload, privacy_sett
         
 
 def process_pdf_file(file_content, file_path, repo_selected_for_upload, privacy_setting):
+    import PyPDF2
     print ('process_pdf_file privacy_setting: ', privacy_setting)
     pdf_stream = io.BytesIO(file_content)
     pdf_reader = PyPDF2.PdfReader(pdf_stream)
@@ -621,23 +524,17 @@ def process_xlsx_file(s3,aws_bucket, file_path):
     # Read the Excel file into a pandas DataFrame
     df = pd.read_excel(excel_file)
 
-    from pandasai import SmartDataframe
-    from pandasai import SmartDatalake
-    from pandasai.llm import OpenAI
-    llm = OpenAI(api_token=OPENAI_API_KEY)
-    dl = SmartDatalake([df], config={"llm": llm})
+    # from pandasai import SmartDataframe
+    # from pandasai import SmartDatalake
+    # from pandasai.llm import OpenAI
+    # llm = OpenAI(api_token=OPENAI_API_KEY)
+    # dl = SmartDatalake([df], config={"llm": llm})
       
     return df
 
 def process_file(file_path, repo_selected_for_upload, privacy_setting):
     print(f'Processing file: {file_path}')
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    aws_region = os.getenv('AWS_DEFAULT_REGION')
-    aws_bucket = os.getenv('S3_BUCKET_NAME')
-
-    s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
-
+    s3, aws_bucket = get_aws_client ("s3")
     response = s3.get_object(Bucket=aws_bucket, Key=file_path)
     
     file_content = b""
@@ -731,7 +628,7 @@ def extract_chunks_from_uploaded_file(uploaded_file, repo_selected_for_upload, p
 
     return chunks
 
-def process_openai(user_name_logged, prompt, model, Conversation, kr_repos_chosen, domain_choice):
+def process_openai(user_name_logged, source, prompt, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice):
     print ("In process_openai main call ")
     print ("session.....")
     print (st.session_state.messages)
@@ -745,38 +642,36 @@ def process_openai(user_name_logged, prompt, model, Conversation, kr_repos_chose
         st.session_state.messages.append({"role": "user", "content": prompt})
 
     print (st.session_state.messages)    
-    json_data = get_gpt_response(client, model_name, st.session_state.messages, "Open AI", domain_choice)
+    json_data = get_gpt_response(user_name_logged, prompt, st.session_state.messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, source)
     return json_data
     
 
 
-def process_knowledge_base(prompt, model, Conversation, kr_repos_chosen, domain_choice):
-    print ('In process_knowledge_base ')    
-    dotenv.load_dotenv(".env")
-    env_vars = dotenv.dotenv_values()
-    for key in env_vars:
-        os.environ[key] = env_vars[key]
-    pinecone.init (
-        api_key = os.getenv('PINECONE_API_KEY'),
-        environment = os.getenv('PINECONE_ENVIRONMENT')   
-    )
-    pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
+# def process_knowledge_base(
+#         user_name_logged, 
+#         prompt, 
+#         model_name, 
+#         max_output_tokens, 
+#         temperature_value, 
+#         kr_repos_chosen, 
+#         persistence_choice,
+#         domain_choice
+#     ):
+#     print ('In process_knowledge_base ')    
     
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-    text_field = "text"
-    # Need to refactor Rajesh
-    embed = OpenAIEmbeddings(
-        model=embedding_model_name,
-        openai_api_key=OPENAI_API_KEY
-    )
-    index_name = pinecone_index_name
-    # pinecone_index = pinecone.Index(index_name)
+#     resp = search_vector_store 
+#     (
+#         user_name_logged, 
+#         prompt, 
+#         model_name, 
+#         max_output_tokens, 
+#         temperature_value, 
+#         kr_repos_chosen, 
+#         persistence_choice,
+#         domain_choice
+#     )
 
- 
-    # Rajesh change
-    resp = search_vector_store (persistence_choice, index_name, prompt, model, "KR", k_similarity, kr_repos_chosen, domain_choice)
-
-    return resp
+#     return resp
     
 def process_uploaded_file(uploaded_files,  persistence_choice, repo_selected_for_upload):
     import json
@@ -810,27 +705,31 @@ def process_uploaded_file(uploaded_files,  persistence_choice, repo_selected_for
         if repo_selected_for_upload in kr_repos_list:
             print(f'processing {repo_selected_for_upload} KR')
 
-            print (f'Number of chunks in docs_chunks {len(docs_chunks)}')
+            print (f'Number of chunks in docs_chunks new {len(docs_chunks)}')
             dotenv.load_dotenv(".env")
             env_vars = dotenv.dotenv_values()
             for key in env_vars:
                 os.environ[key] = env_vars[key]
-                
-            OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-            # if OPENAI_API_KEY:
-            #     openai.api_key = OPENAI_API_KEY
             pinecone.init (
                 api_key = os.getenv('PINECONE_API_KEY'),
                 environment = os.getenv('PINECONE_ENVIRONMENT')   
             )
             pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
+            
+            OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+            OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION')
             client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
+            
+            from langchain.embeddings.openai import OpenAIEmbeddings
             embeddings = OpenAIEmbeddings()
+            
             try:
                 index_name = pinecone_index_name  # Specify the index name as a string
+               
                 Pinecone.from_documents(
                     docs_chunks, embeddings, index_name=index_name
                 )
+                
 
             except pinecone.exceptions.PineconeException as e:
                 print(f"An error occurred: {str(e)}")
@@ -839,7 +738,7 @@ def process_uploaded_file(uploaded_files,  persistence_choice, repo_selected_for
             print ("Vector Store Loaded!")
             return repo_selected_for_upload
 
-def selected_data_sources(selected_elements, prompt, model, llm, Conversation, kr_repos_chosen, kr_repos_list, domain_choice):
+def selected_data_sources(selected_sources, user_input, model_name, kr_repos_chosen, kr_repos_list, domain_choice) :
     print ("In selected_data_sources")
     import json
 
@@ -847,7 +746,7 @@ def selected_data_sources(selected_elements, prompt, model, llm, Conversation, k
     selected_elements_functions = {
        
         'Wikipedia': process_wikipedia,       
-        'KR':process_knowledge_base,
+        'KR':search_vector_store,
         'Open AI': process_openai,
         'Google':process_google_search,       
         'Hugging Face':process_huggingface,
@@ -855,18 +754,18 @@ def selected_data_sources(selected_elements, prompt, model, llm, Conversation, k
         
     }
 
-    for element in selected_elements:
+    for element in selected_sources:
         if element in selected_elements_functions:
 
             if (element == 'Open AI'):
-                str_response = selected_elements_functions[element](user_name_logged, prompt, model, Conversation, kr_repos_chosen, domain_choice)
+                str_response = selected_elements_functions[element](user_name_logged, "Open AI", user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice)
                 json_response = json.loads(str_response)                
                
                 all_responses.append(json_response)
                 
             elif (element == 'KR'):
                 print ('Processing KR')
-                str_response = selected_elements_functions[element](prompt, model, Conversation, kr_repos_chosen, domain_choice)
+                str_response = selected_elements_functions[element](user_name_logged, "KR", user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, persistence_choice, domain_choice)
               
                 json_response = json.loads(str_response)
              
@@ -874,31 +773,28 @@ def selected_data_sources(selected_elements, prompt, model, llm, Conversation, k
                 
             elif (element == 'Google'):
                 print ('Processing Google')
-                str_response = selected_elements_functions[element](prompt, llm)
+                str_response = selected_elements_functions[element](user_input)
                 json_response = json.loads(str_response)
                 all_responses.append(json_response)
                 
             elif (element == 'YouTube'):
                 print ('Processing YouTube')
-                str_response = selected_elements_functions[element](youtube_url , prompt)
+                str_response = selected_elements_functions[element](youtube_url , user_input)
                 json_response = json.loads(str_response)
                 all_responses.append(json_response)
                 
             elif (element == 'Hugging Face'):
-                str_response = selected_elements_functions[element](prompt,llm)
+                str_response = selected_elements_functions[element](user_input)
                 json_response = json.loads(str_response)
                 all_responses.append(json_response)
                 
             elif (element == 'Wikipedia'):
-                str_response = selected_elements_functions[element](prompt, llm)
+                str_response = selected_elements_functions[element](user_input)
                 json_response = json.loads(str_response)
                 all_responses.append(json_response)
             else:
                 print ("check chosen sources")
-            accumulated_json = {"all_responses": all_responses}
-           
-
-      
+            accumulated_json = {"all_responses": all_responses}     
 
             accumulated_json_str = json.dumps(accumulated_json)
 
@@ -951,7 +847,7 @@ def get_response(user_input, kr_repos_chosen):
         if  user_input and len(selected_sources) > 0 and goButton:
 
           with st.spinner("Searching requested sources..."):        
-            str_resp = selected_data_sources(selected_sources, user_input, model_name, llm, Conversation, kr_repos_chosen, kr_repos_list, domain_choice)               
+            str_resp = selected_data_sources(selected_sources, user_input, model_name, kr_repos_chosen, kr_repos_list, domain_choice)               
             data = json.loads(str_resp)['all_responses']
 
             response_dict = {
@@ -963,7 +859,7 @@ def get_response(user_input, kr_repos_chosen):
                 'kr_response':None
             }
 
-            if not trigger_inference:
+            if not trigger_image_inference:
                 for response in data:
                     source = response['source']
                     if source in selected_sources:
@@ -1035,7 +931,8 @@ def get_response(user_input, kr_repos_chosen):
                     latest_index = len(st.session_state['generated_response']) - 1
 
                     st.info(st.session_state["user_prompts"][latest_index], icon="✅")
-                    st.success(st.session_state["generated_response"][latest_index], icon="✅")
+                    if google_response:
+                        st.success(st.session_state["generated_response"][latest_index], icon="✅")
                     download_str.append(st.session_state["user_prompts"][latest_index])
                     download_str.append(st.session_state["generated_response"][latest_index])
                                    
@@ -1043,20 +940,27 @@ def get_response(user_input, kr_repos_chosen):
                         summary_dict = []
                         st.subheader('Summary from all sources')
                         generated_string = str(st.session_state['generated_response'][-1])
-
-                        summary = process_openai("Please generate a short summary of the following text in professional words: " + generated_string, model, Conversation, domain_choice)
-
+                        summary_prompt = "Please generate a short summary of the following text in professional words: "
+                        # summary = process_openai( + generated_string, model, Conversation, domain_choice)
+                        summary = process_openai(user_name_logged, summary_prompt, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice)
                         summary_json = json.loads(summary)  # Parse the summary string as JSON
                   
                         response = summary_json['response']  # Extract the 'response' field from the summary JSON
                      
                         summary_dict.append(response)
                         st.success(summary_dict[0], icon="✅")
-                        
+
+
+               
+
 
 response_container = st.container()
 # container for text box
 container = st.container()
+trigger_inference_image_uploaded = False
+show_library = ''
+add_to_library = ''
+improve_button = ''
 
 with container:    
     if (task =='Data Load'):
@@ -1072,7 +976,20 @@ with container:
             placeholder_default = None
             ask_text = "**Selected Sources:** " + "**:green[" + selected_sources_text + "]**" 
             user_input = st.text_area(ask_text, height=150, key='input', value = default_text_value, placeholder=placeholder_default, label_visibility="visible") 
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+            with col1:
+                goButton = st.button("Go")   
+                                
+            with col3:
+                show_library = st.button("Your Library📚", help = "click to see your prompt library")
+            with col2:
+                add_to_library = st.button("Add to Library📚", help = "add this prompt to your prompt library") 
+            with col4:
+                improve_button = st.button("Improve", type="primary", help = "report this prompt to for investigation")         
             
+            if goButton:         
+                get_response (user_input, kr_repos_chosen)
+                        
         else:
             if macro_view:
                 try:
@@ -1093,9 +1010,9 @@ with container:
                   
                 except pinecone.exceptions.PineconeException as e:
                     print(f"An error occurred: {str(e)}")
-            trigger_inference_image_uploaded = False
+            
                 
-            if trigger_inference:  
+            if trigger_image_inference:  
                 print ("In trigger_inference")  
                 selected_sources_text = "Image Inference"
                 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])  
@@ -1155,7 +1072,7 @@ with container:
                     
                 # Display the conversation history using an expander, and allow the user to download it.
         words_in_input_text = False
-        if ((trigger_inference_image_uploaded and trigger_inference) or (not trigger_inference)):
+        if ((trigger_inference_image_uploaded and trigger_image_inference) or (not trigger_image_inference)):
            
             if user_input.strip():  # This ensures that empty spaces are not counted
                 words = user_input.split()
@@ -1185,7 +1102,7 @@ with container:
                     placeholder.empty()  # This clears the form
 
 
-        if not trigger_inference_image_uploaded and  trigger_inference:
+        if not trigger_inference_image_uploaded and  trigger_image_inference:
             show_library = st.button("Your Library 📚", help = "click to see your prompt library")
 
         if show_library:
@@ -1193,7 +1110,9 @@ with container:
                 data = {
                     "userName": st.session_state['current_user']
                 }
+
                 lambda_function_name = PROMPT_QUERY_LAMBDA
+                
                 lambda_response = lambda_client.invoke(
                     FunctionName=lambda_function_name,
                     InvocationType='RequestResponse',
@@ -1235,7 +1154,7 @@ with container:
                     
         with st.expander("Download Conversation", expanded=False):
             download_str = []
-           
+            print ("In expander ", len(st.session_state['generated_response']))
             for i in range(len(st.session_state['generated_response'])-1, -1, -1):
                 st.info(st.session_state["user_prompts"][i],icon="✅")
                 st.success(st.session_state["generated_response"][i], icon="✅")
