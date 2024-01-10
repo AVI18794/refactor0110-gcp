@@ -12,7 +12,7 @@ from utils.format_source_paths import format_source_paths
    
 def call_openai(LLM_choice, user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, similarity_search_output_documents):
     
-    print ("In call_openai ")   
+    print ("In call_openai changed")   
     print (model_name)   
     print (max_output_tokens) 
     print (temperature_value)
