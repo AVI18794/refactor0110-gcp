@@ -2,20 +2,21 @@ import os
 import dotenv
 import boto3
 from openai import OpenAI
+from config import config
 env_vars = dotenv.dotenv_values()
 for key in env_vars:
     os.environ[key] = env_vars[key]
 
 # Initialize OpenAI client
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION')
+OPENAI_API_KEY = config.OPENAI_API_KEY
+OPENAI_ORGANIZATION = config.OPENAI_ORGANIZATION
 client = OpenAI(organization=OPENAI_ORGANIZATION, api_key=OPENAI_API_KEY)
 
 def upload_to_s3_refactor(bucket_name, uploaded_file):
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    aws_region = os.getenv('AWS_DEFAULT_REGION')
-    aws_bucket_input_path = os.getenv('S3_BUCKET_INPUT_PATH')
+    aws_access_key_id = config.AWS_ACCESS_KEY_ID
+    aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
+    aws_region = config.AWS_DEFAULT_REGION
+    aws_bucket_input_path = config.S3_BUCKET_INPUT_PATH
 
     # Create an S3 client
     s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)

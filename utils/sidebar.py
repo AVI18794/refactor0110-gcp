@@ -1,18 +1,19 @@
 import os
 import dotenv
 import re
+from config import config
 
 dotenv.load_dotenv(".env")
 env_vars = dotenv.dotenv_values()
 for key in env_vars:
     os.environ[key] = env_vars[key]
-STATIC_ASSEST_BUCKET_URL = os.getenv("STATIC_ASSEST_BUCKET_URL")
-STATIC_ASSEST_BUCKET_FOLDER = os.getenv("STATIC_ASSEST_BUCKET_FOLDER")
-UPDATE_CONFIG_LAMBDA = os.getenv('UPDATE_CONFIG_LAMBDA')
+STATIC_ASSEST_BUCKET_URL = config.STATIC_ASSEST_BUCKET_URL
+STATIC_ASSEST_BUCKET_FOLDER = config.STATIC_ASSEST_BUCKET_FOLDER
+UPDATE_CONFIG_LAMBDA = config.UPDATE_CONFIG_LAMBDA
 QUERY_CONFIG_LAMBDA = os.getenv ('QUERY_CONFIG_LAMBDA')
 SNOWBENCH_URL = os.getenv ('SNOWBENCH_URL')
-LOGO_NAME = os.getenv("LOGO_NAME")  
-OPENAI_CHOICE = os.getenv("OPENAI_CHOICE")  
+LOGO_NAME = config.LOGO_NAME
+OPENAI_CHOICE = config.OPENAI_CHOICE  
 import pinecone
 
 import streamlit as st
@@ -25,8 +26,8 @@ def is_valid_repo_name(name):
 
 def delete_repository_docs(repo_name):
     try:
-        pinecone.init(api_key=os.getenv('PINECONE_API_KEY'), environment=os.getenv('PINECONE_ENVIRONMENT'))
-        index = pinecone.Index(os.getenv('PINECONE_INDEX_NAME'))
+        pinecone.init(api_key=config.PINECONE_API_KEY, environment=config.PINECONE_ENVIRONMENT)
+        index = pinecone.Index(config.PINECONE_INDEX_NAME)
         index.delete(
             filter={
                 "repo": {"$eq": repo_name} 

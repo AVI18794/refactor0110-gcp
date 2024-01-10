@@ -3,6 +3,7 @@ import os
 from openai import OpenAI
 import streamlit as st
 import dotenv
+from config import config
 def process_text2image (prompt):
     print ("In process_text2image")
     import requests
@@ -13,8 +14,8 @@ def process_text2image (prompt):
     for key in env_vars:
         os.environ[key] = env_vars[key]
         
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-    OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION')
+    OPENAI_API_KEY = config.OPENAI_API_KEY
+    OPENAI_ORGANIZATION = config.OPENAI_ORGANIZATION
     client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
    
     # user_prompt = "Generate a high-resolution, realistic image of a Mahindra Thar vehicle in a full and front-facing view. The scene should be captured as if photographed with a Canon high-quality camera. The backdrop should showcase majestic mountains, providing a picturesque setting. Pay attention to details such as lighting, reflections, and shadows to ensure a lifelike representation of the vehicle in this scenic environment."
@@ -41,14 +42,14 @@ def process_text2image (prompt):
         env_vars = dotenv.dotenv_values()
         for key in env_vars:
             os.environ[key] = env_vars[key]
-        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-        aws_region = os.getenv('AWS_DEFAULT_REGION')
+        aws_access_key_id = config.AWS_ACCESS_KEY_ID
+        aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
+        aws_region = config.AWS_DEFAULT_REGION
         
             # Create an S3 client
         
-        aws_bucket = os.getenv('S3_PUBLIC_ACCESS')
-        aws_bucket_input_path = os.getenv('S3_PUBLIC_ACCESS_PATH')
+        aws_bucket = config.S3_PUBLIC_ACCESS
+        aws_bucket_input_path = config.S3_PUBLIC_ACCESS_PATH
         s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
         image_data = requests.get(image_url).content
         s3.put_object(Body=image_data, Bucket=aws_bucket, Key=aws_bucket_input_path + "/" + file_name)

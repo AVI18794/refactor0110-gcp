@@ -29,6 +29,7 @@ from utils.getAzureOpenAIClient import get_openai_azure_core_client
 from utils.getOpenAIClient import get_openai_core_client
 from utils.getAWSClient import get_aws_client
 from utils.extractFilePaths import extract_distinct_file_paths
+from config import config
 
 from processors.process_text2image import process_text2image
 from processors.process_huggingface import process_huggingface
@@ -36,20 +37,29 @@ from processors.process_wikipedia import process_wikipedia
 from processors.process_openai import call_openai
 from processors.process_image_infer import upload_to_s3_refactor, generate_presigned_url, get_inference
 
-dotenv.load_dotenv(".env")
-env_vars = dotenv.dotenv_values()
-for key in env_vars:
-    os.environ[key] = env_vars[key]
+# dotenv.load_dotenv(".env")
+# env_vars = dotenv.dotenv_values()
+# for key in env_vars:
+#     os.environ[key] = env_vars[key]
 
-aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-aws_region = os.getenv('AWS_DEFAULT_REGION')
+# aws_access_key_id = config.AWS_ACCESS_KEY_ID')
+# aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY')
+# aws_region = config.AWS_DEFAULT_REGION')
     
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+# S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-PROMPT_INSERT_LAMBDA = os.getenv('PROMPT_INSERT_LAMBDA')
-PROMPT_UPDATE_LAMBDA = os.getenv('PROMPT_UPDATE_LAMBDA')
-PROMPT_QUERY_LAMBDA = os.getenv('PROMPT_QUERY_LAMBDA')
+# PROMPT_INSERT_LAMBDA = config.PROMPT_INSERT_LAMBDA')
+# PROMPT_UPDATE_LAMBDA = config.PROMPT_UPDATE_LAMBDA')
+# PROMPT_QUERY_LAMBDA = config.PROMPT_QUERY_LAMBDA')
+aws_access_key_id = config.AWS_ACCESS_KEY_ID
+aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
+aws_region = config.AWS_DEFAULT_REGION
+
+S3_BUCKET_NAME = config.S3_BUCKET_NAME
+
+PROMPT_INSERT_LAMBDA = config.PROMPT_INSERT_LAMBDA
+PROMPT_UPDATE_LAMBDA = config.PROMPT_UPDATE_LAMBDA
+PROMPT_QUERY_LAMBDA = config.PROMPT_QUERY_LAMBDA
 lambda_client = boto3.client('lambda', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
 
 # Will come from AD
@@ -178,8 +188,10 @@ def get_embedding(LLM_choice,text, model):
 
     if LLM_choice == "Azure":   
         print ("In Azure")
-        AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv('AZURE_OPENAI_EMBEDDING_DEPLOYMENT') 
-        AZURE_OPENAI_VERSION = os.getenv('AZURE_OPENAI_VERSION')         
+        # AZURE_OPENAI_EMBEDDING_DEPLOYMENT = config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT') 
+        # AZURE_OPENAI_VERSION = config.AZURE_OPENAI_VERSION')  
+        AZURE_OPENAI_EMBEDDING_DEPLOYMENT = config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+        AZURE_OPENAI_VERSION = config.AZURE_OPENAI_VERSION         
         client = get_openai_azure_core_client ()    
         embeddings = client.embeddings.create(
             model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
@@ -288,7 +300,7 @@ def process_csv_file(file_path):
     print ("In process_csv_file")
     import pandas as pd
     from io import StringIO
-    aws_bucket = os.getenv('S3_BUCKET_NAME')
+    aws_bucket = config.S3_BUCKET_NAME
     response = get_from_s3(aws_bucket, file_path)
   
     status_code = response.get('ResponseMetadata', {}).get('HTTPStatusCode')
@@ -379,7 +391,7 @@ def process_google_search(prompt):
     env_vars = dotenv.dotenv_values()
     for key in env_vars:
         os.environ[key] = env_vars[key]
-    SERPAPI_API_KEY = os.getenv('SERPAPI_API_KEY')
+    SERPAPI_API_KEY = config.SERPAPI_API_KEY
     if SERPAPI_API_KEY:
         serpapi_api_key = SERPAPI_API_KEY
     else:
@@ -434,10 +446,10 @@ def process_YTLinks(youtube_video_url, user_input):
     for key in env_vars:
         os.environ[key] = env_vars[key]
     pinecone.init (
-        api_key = os.getenv('PINECONE_API_KEY'),
-        environment = os.getenv('PINECONE_ENVIRONMENT')   
+        api_key = config.PINECONE_API_KEY,
+        environment = config.PINECONE_ENVIRONMENT  
     )
-    pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
+    pinecone_index_name = config.PINECONE_INDEX_NAME
     # append_metadata(chunks, file_path, repo_selected_for_upload, privacy_setting)
 
     
@@ -577,11 +589,11 @@ def process_file(file_path, repo_selected_for_upload, privacy_setting):
 
 def upload_to_s3(bucket_name, uploaded_file):
     bytes_data = uploaded_file.read()
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    aws_region = os.getenv('AWS_DEFAULT_REGION')
+    aws_access_key_id = config.AWS_ACCESS_KEY_ID
+    aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
+    aws_region = config.AWS_DEFAULT_REGION
     aws_bucket = bucket_name
-    aws_bucket_input_path = os.getenv('S3_BUCKET_INPUT_PATH')
+    aws_bucket_input_path = config.S3_BUCKET_INPUT_PATH
     # Create an S3 client
     s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
 
@@ -593,9 +605,9 @@ def upload_to_s3(bucket_name, uploaded_file):
 
 def get_from_s3(bucket_name, path_name):
 
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    aws_region = os.getenv('AWS_DEFAULT_REGION')
+    aws_access_key_id = config.AWS_ACCESS_KEY_ID
+    aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
+    aws_region = config.AWS_DEFAULT_REGION
 
     # Create an S3 client
     s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
@@ -604,7 +616,7 @@ def get_from_s3(bucket_name, path_name):
     
 def extract_chunks_from_uploaded_file(uploaded_file, repo_selected_for_upload, privacy_setting):
     print('In extract_chunks_from_uploaded_file')
-    bucket_name = os.getenv('S3_BUCKET_NAME')
+    bucket_name = config.S3_BUCKET_NAME
     s3_target_path = upload_to_s3(bucket_name,uploaded_file)
     # _ is used to ignore the base name of the file
     _, file_extension = os.path.splitext(uploaded_file.name)
@@ -712,13 +724,13 @@ def process_uploaded_file(uploaded_files,  persistence_choice, repo_selected_for
             for key in env_vars:
                 os.environ[key] = env_vars[key]
             pinecone.init (
-                api_key = os.getenv('PINECONE_API_KEY'),
-                environment = os.getenv('PINECONE_ENVIRONMENT')   
+                api_key = config.PINECONE_API_KEY,
+                environment = config.PINECONE_ENVIRONMENT   
             )
-            pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
+            pinecone_index_name = config.PINECONE_INDEX_NAME
             
-            OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-            OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION')
+            OPENAI_API_KEY = config.OPENAI_API_KEY
+            OPENAI_ORGANIZATION = config.OPENAI_ORGANIZATION
             client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
             
             from langchain.embeddings.openai import OpenAIEmbeddings
@@ -999,10 +1011,10 @@ with container:
                     for key in env_vars:
                         os.environ[key] = env_vars[key]
                     pinecone.init (
-                        api_key = os.getenv('PINECONE_API_KEY'),
-                        environment = os.getenv('PINECONE_ENVIRONMENT')   
+                        api_key = config.PINECONE_API_KEY,
+                        environment = config.PINECONE_ENVIRONMENT  
                     )
-                    pinecone_index_name = os.getenv('PINECONE_INDEX_NAME')
+                    pinecone_index_name = config.PINECONE_INDEX_NAME
                     index_name = pinecone_index_name  # Specify the index name as a string
                     indexPinecone = pinecone.Index(index_name)
                     num_vectors = indexPinecone.describe_index_stats()

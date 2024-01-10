@@ -7,6 +7,7 @@ from utils.callLambda import invoke_lambda
 from utils.getAzureOpenAIClient import get_openai_azure_core_client
 from utils.getOpenAIClient import get_openai_core_client
 from utils.extractFilePaths import extract_distinct_file_paths
+from config import config
 
 from utils.format_source_paths import format_source_paths
    
@@ -27,7 +28,7 @@ def call_openai(LLM_choice, user_name_logged, prompt, messages, model_name, max_
     resp_container = st.empty()
     
     if LLM_choice == "Azure":
-        AZURE_OPENAI_VERSION= os.getenv('AZURE_OPENAI_VERSION') 
+        AZURE_OPENAI_VERSION= config.AZURE_OPENAI_VERSION
         deployment_name = model_name        
         client = get_openai_azure_core_client()
         response = client.chat.completions.create(
@@ -92,7 +93,7 @@ def call_openai(LLM_choice, user_name_logged, prompt, messages, model_name, max_
     }
 
     # Invoke the Lambda function
-    PROMPT_INSERT_LAMBDA = os.getenv('PROMPT_INSERT_LAMBDA')
+    PROMPT_INSERT_LAMBDA = config.PROMPT_INSERT_LAMBDA
     lambda_function_name = PROMPT_INSERT_LAMBDA
     lambda_response = invoke_lambda (lambda_function_name, data)
     if lambda_response != 200:
