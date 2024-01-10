@@ -83,7 +83,8 @@ if 'current_promptName' not in st.session_state:
     show_text_area,
     trigger_image_inference,
     domain_choice,
-    privacy_setting
+    privacy_setting,
+    LLM_choice
    
 ) = create_sidebar(st)
 # print (f'macro_view right after sidebar call {macro_view}')
@@ -101,11 +102,11 @@ if (task == 'Query'):
 initialize_session()
 
 
-def get_gpt_response(user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, source):
+def get_gpt_response(LLM_choice, user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, source):
     print ("In get_gpt_response")
     max_messages = 12
     # trimmed_messages = messages[-max_messages:]    
-    message_content, input_tokens, output_tokens, total_tokens, cost, promptId = call_openai(user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, None)
+    message_content, input_tokens, output_tokens, total_tokens, cost, promptId = call_openai(LLM_choice, user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, None)
     st.session_state.messages.append({"role": "assistant", "content": message_content})
     st.session_state['current_promptName'] = promptId
        
@@ -163,7 +164,7 @@ def transform_format_a_to_b(format_a):
         documents.append(Document(page_content, metadata))
     return documents
 
-def get_embedding(text, model):
+def get_embedding(LLM_choice,text, model):
     print ("In get_embedding")
     import os
     from openai import OpenAI        
@@ -172,14 +173,14 @@ def get_embedding(text, model):
     for key in env_vars:
         os.environ[key] = env_vars[key]
         
-    OPENAI_CHOICE = os.getenv('OPENAI_CHOICE')
+   
     text = text.replace("\n", " ")
 
-    if OPENAI_CHOICE == "Azure":   
+    if LLM_choice == "Azure":   
         print ("In Azure")
         AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv('AZURE_OPENAI_EMBEDDING_DEPLOYMENT') 
         AZURE_OPENAI_VERSION = os.getenv('AZURE_OPENAI_VERSION')         
-        client = get_openai_azure_core_client (AZURE_OPENAI_VERSION)    
+        client = get_openai_azure_core_client ()    
         embeddings = client.embeddings.create(
             model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
             input=[text]
@@ -194,7 +195,7 @@ def get_embedding(text, model):
 
     
 
-def search_vector_store (user_name_logged, source, user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, persistence_choice, domain_choice):
+def search_vector_store (LLM_choice, user_name_logged, source, user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, persistence_choice, domain_choice):
     print ('In search_vector_store', kr_repos_chosen, persistence_choice )  
         
     if 'chat_history_upload' not in st.session_state:   
@@ -217,7 +218,7 @@ def search_vector_store (user_name_logged, source, user_input, model_name, max_o
     
     index = get_pinecone_index ()
 
-    prompt_embedding = get_embedding (result,embedding_model_name)
+    prompt_embedding = get_embedding (LLM_choice, result,embedding_model_name)
 
     similarity_search_result = index.query(
         [prompt_embedding],
@@ -250,7 +251,7 @@ def search_vector_store (user_name_logged, source, user_input, model_name, max_o
        
     messages.append(userMessage)
 
-    message_content, input_tokens, output_tokens, total_tokens, cost, promptId = call_openai(user_name_logged, user_input, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, similarity_search_output_documents)
+    message_content, input_tokens, output_tokens, total_tokens, cost, promptId = call_openai(LLM_choice,user_name_logged, user_input, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, similarity_search_output_documents)
     
     st.session_state.messages.append({"role": "assistant", "content": message_content})
     st.session_state['current_promptName'] = promptId
@@ -385,7 +386,7 @@ def process_google_search(prompt):
         print("SERPAPI_API_KEY key not found. Please make sure you have set the SERPAPI_API_KEY environment variable.")
     
     from langchain.agents import Tool, AgentExecutor   
-    from langchain import SerpAPIWrapper
+    from langchain_community.utilities import SerpAPIWrapper
     from langchain.agents import Tool,ConversationalChatAgent
     from langchain.chat_models import ChatOpenAI
     from langchain.memory import ConversationSummaryBufferMemory 
@@ -628,7 +629,7 @@ def extract_chunks_from_uploaded_file(uploaded_file, repo_selected_for_upload, p
 
     return chunks
 
-def process_openai(user_name_logged, source, prompt, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice):
+def process_openai(LLM_choice, user_name_logged, source, prompt, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice):
     print ("In process_openai main call ")
     print ("session.....")
     print (st.session_state.messages)
@@ -642,7 +643,7 @@ def process_openai(user_name_logged, source, prompt, model_name, max_output_toke
         st.session_state.messages.append({"role": "user", "content": prompt})
 
     print (st.session_state.messages)    
-    json_data = get_gpt_response(user_name_logged, prompt, st.session_state.messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, source)
+    json_data = get_gpt_response(LLM_choice, user_name_logged, prompt, st.session_state.messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, source)
     return json_data
     
 
@@ -758,14 +759,14 @@ def selected_data_sources(selected_sources, user_input, model_name, kr_repos_cho
         if element in selected_elements_functions:
 
             if (element == 'Open AI'):
-                str_response = selected_elements_functions[element](user_name_logged, "Open AI", user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice)
+                str_response = selected_elements_functions[element](LLM_choice, user_name_logged, "Open AI", user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice)
                 json_response = json.loads(str_response)                
                
                 all_responses.append(json_response)
                 
             elif (element == 'KR'):
                 print ('Processing KR')
-                str_response = selected_elements_functions[element](user_name_logged, "KR", user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, persistence_choice, domain_choice)
+                str_response = selected_elements_functions[element](LLM_choice, user_name_logged, "KR", user_input, model_name, max_output_tokens, temperature_value, kr_repos_chosen, persistence_choice, domain_choice)
               
                 json_response = json.loads(str_response)
              
@@ -846,7 +847,7 @@ def get_response(user_input, kr_repos_chosen):
 
         if  user_input and len(selected_sources) > 0 and goButton:
 
-          with st.spinner("Searching requested sources..."):        
+          with st.spinner("Generating response..."):        
             str_resp = selected_data_sources(selected_sources, user_input, model_name, kr_repos_chosen, kr_repos_list, domain_choice)               
             data = json.loads(str_resp)['all_responses']
 

@@ -9,36 +9,53 @@ from utils.getOpenAIClient import get_openai_core_client
 from utils.extractFilePaths import extract_distinct_file_paths
 
 from utils.format_source_paths import format_source_paths
-
-
-
    
-def call_openai(user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, similarity_search_output_documents):
-    print ("In call_openai ")       
+def call_openai(LLM_choice, user_name_logged, prompt, messages, model_name, max_output_tokens, temperature_value, kr_repos_chosen, domain_choice, similarity_search_output_documents):
+    
+    print ("In call_openai ")   
+    print (model_name)   
+    print (max_output_tokens) 
+    print (temperature_value)
     dotenv.load_dotenv(".env")
     env_vars = dotenv.dotenv_values()
     for key in env_vars:
         os.environ[key] = env_vars[key]
         
-    OPENAI_CHOICE = os.getenv('OPENAI_CHOICE')    
-    AZURE_OPENAI_VERSION= os.getenv('AZURE_OPENAI_VERSION')  
+       
+     
+    openai_response = ""
+    resp_container = st.empty()
     
-    if OPENAI_CHOICE == "Azure":
+    if LLM_choice == "Azure":
+        AZURE_OPENAI_VERSION= os.getenv('AZURE_OPENAI_VERSION') 
         deployment_name = model_name        
-        client = get_openai_azure_core_client( AZURE_OPENAI_VERSION)
-        openai_response = client.chat.completions.create(
-            model=deployment_name, 
-            messages=messages, 
-            max_tokens=max_output_tokens,
-            temperature = temperature_value
+        client = get_openai_azure_core_client()
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=temperature_value,
+            max_tokens = max_output_tokens,
+            stream=True
         )
+
+        for chunk in response:
+            if len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+
+                if delta.role:
+                    print(delta.role + ": ", end="", flush=True)
+                if delta.content:
+                    print(delta.content, end="", flush=True)
+                    openai_response += delta.content
+                    resp_container.markdown(openai_response)
     else:
         client = get_openai_core_client()
-        openai_response = ""
-        resp_container = st.empty()
+
         for delta in client.chat.completions.create(
                 model=model_name ,
                 messages=messages,
+                temperature=temperature_value,
+                max_tokens = max_output_tokens,
                 stream=True,
         ):
             openai_response += (delta.choices[0].delta.content or "")

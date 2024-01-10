@@ -100,7 +100,7 @@ def create_sidebar (st):
     text2Image_source = ['text2Image']
     other_sources_default = ['KR']
     embedding_options = ['text-embedding-ada-002']
-    LLM_options = ['Azure', 'Open AI']
+    LLM_options = [ 'Open AI', 'Azure']
     persistence_options = [ 'Pinecone']
     model_options = ['gpt-3.5-turbo','gpt-4', 'gpt-4-1106-preview','gpt-3.5-turbo-1106', 'gpt-3.5-turbo-16k']
     azure_model_options = ['gpt4', 'gpt432k', 'gpt35turbo', 'gpt35turbo16k']
@@ -253,6 +253,7 @@ def create_sidebar (st):
         show_text_area,
         trigger_image_inference,
         domain_choice,
-        privacy_setting    
+        privacy_setting,
+        LLM_choice   
         
     )
