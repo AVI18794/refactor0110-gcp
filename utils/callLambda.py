@@ -35,11 +35,13 @@ def invoke_lambda(lambda_name, data):
         )
     except Exception as e:
         return f"Error invoking Lambda: {str(e)}"
+    response_payload = json.loads(lambda_response['Payload'].read())
+    return lambda_response['StatusCode'], response_payload
 
-    # Check the response status code
-    if lambda_response['StatusCode'] == 200:
-        return (200, lambda_response)
-    else:
-        raise Exception(f"AWS Lambda invocation failed with status code: {lambda_response['StatusCode']}")
+    # # Check the response status code
+    # if lambda_response['StatusCode'] == 200:
+    #     return (200, lambda_response)
+    # else:
+    #     raise Exception(f"AWS Lambda invocation failed with status code: {lambda_response['StatusCode']}")
 
 
