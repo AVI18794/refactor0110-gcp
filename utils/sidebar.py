@@ -56,12 +56,12 @@ def get_repository_list(domain_choice):
     #     if body and isinstance(body, list) and 'configValue' in body[0]:
     #         return body[0]['configValue']
     # return []
-    if response and response['statusCode'] == 200:
+    # if response and response['statusCode'] == 200:
         # Parse the JSON string in the 'body' key
-        body = json.loads(response['body'])
-        print (body)
-      
-        return body[0]['configValue']
+    body = json.loads(response['body'])
+    print (body)
+    
+    return body[0]['configValue']
   
 
   
