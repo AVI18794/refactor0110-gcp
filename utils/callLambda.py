@@ -13,7 +13,8 @@ def load_env():
 
 # Function to invoke Lambda
 def invoke_lambda(lambda_name, data):
-    load_env()
+    print ("In invoke_lambda")
+    # load_env()
 
     # Retrieve AWS credentials and Lambda function name from environment variables
     aws_access_key_id = config.AWS_ACCESS_KEY_ID
