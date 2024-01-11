@@ -22,6 +22,8 @@ from utils.callLambda import invoke_lambda
 from utils.logger import get_logger
 
 
+
+
 def is_valid_repo_name(name):
 
     return bool(re.match("^[A-Za-z0-9_\- ]*$", name))
@@ -48,7 +50,7 @@ def update_repository_list(repo_list):
     
 def get_repository_list(domain_choice):
     import json
-    response = invoke_lambda('queryConfig', {'configName': domain_choice})
+    (response_code, response) = invoke_lambda('queryConfig', {'configName': domain_choice})
     # logger_workbench = get_logger()
     # logger_workbench.log_text(response)
     print ("In get_repository_list response", response)

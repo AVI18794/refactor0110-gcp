@@ -95,7 +95,7 @@ def call_openai(LLM_choice, user_name_logged, prompt, messages, model_name, max_
     # Invoke the Lambda function
     PROMPT_INSERT_LAMBDA = config.PROMPT_INSERT_LAMBDA
     lambda_function_name = PROMPT_INSERT_LAMBDA
-    lambda_response = invoke_lambda (lambda_function_name, data)
+    (lambda_response_code, lambda_response) = invoke_lambda (lambda_function_name, data)
     if lambda_response != 200:
         raise Exception(f"AWS Lambda invocation failed with status code: {lambda_response['StatusCode']}")
     else:
