@@ -18,6 +18,7 @@ import pinecone
 
 import streamlit as st
 import pinecone
+from utils.callLambda import invoke_lambda
 
 
 def is_valid_repo_name(name):
@@ -37,30 +38,16 @@ def delete_repository_docs(repo_name):
     except Exception as e:
         st.sidebar.error(f"Failed to delete documents from {repo_name}: {e}")
 
-def invoke_lambda_function(function_name, payload):
-    import boto3
-    import json
-    lambda_client = boto3.client('lambda', region_name='us-east-1')
-    try:
-        response = lambda_client.invoke(
-            FunctionName=function_name,
-            InvocationType='RequestResponse',
-            Payload=json.dumps(payload)
-        )
-        response_payload = json.load(response['Payload'])
-        return response_payload
-    except Exception as e:
-        st.error(f"Error invoking Lambda function: {e}")
-        return None
+
 
 
 def update_repository_list(repo_list):
     # Update the repository list using updateConfig Lambda function
-    invoke_lambda_function(UPDATE_CONFIG_LAMBDA, {'configName': 'Banking', 'configValue': repo_list})
+    invoke_lambda(UPDATE_CONFIG_LAMBDA, {'configName': 'Banking', 'configValue': repo_list})
     
 def get_repository_list(domain_choice):
     import json
-    response = invoke_lambda_function('queryConfig', {'configName': domain_choice})
+    response = invoke_lambda(QUERY_CONFIG_LAMBDA, {'configName': domain_choice})
     if response and 'statusCode' in response and response['statusCode'] == 200:
         # Parse the JSON string in the 'body' key
         body = json.loads(response['body'])
