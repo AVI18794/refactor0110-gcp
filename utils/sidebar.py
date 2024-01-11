@@ -18,7 +18,7 @@ import pinecone
 
 import streamlit as st
 import pinecone
-from callLambda import invoke_lambda
+from utils.callLambda import invoke_lambda
 
 
 def is_valid_repo_name(name):
