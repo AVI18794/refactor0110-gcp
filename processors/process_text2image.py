@@ -3,7 +3,7 @@ import os
 from openai import OpenAI
 import streamlit as st
 import dotenv
-from config import config
+import config as config
 def process_text2image (prompt):
     print ("In process_text2image")
     import requests

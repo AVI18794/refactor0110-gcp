@@ -1,7 +1,7 @@
 import dotenv
 import pinecone
 import os
-from config import config
+import config as config
 
 def get_pinecone_index():
     dotenv.load_dotenv(".env")

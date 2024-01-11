@@ -1,7 +1,7 @@
 import os
 import dotenv 
 from openai import OpenAI
-from config import config
+import config as config
 
 def get_openai_azure_core_client():    
     print('get_openai_azure_core_client')

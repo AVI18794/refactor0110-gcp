@@ -29,7 +29,7 @@ from utils.getAzureOpenAIClient import get_openai_azure_core_client
 from utils.getOpenAIClient import get_openai_core_client
 from utils.getAWSClient import get_aws_client
 from utils.extractFilePaths import extract_distinct_file_paths
-from config import config
+import config as config
 
 from processors.process_text2image import process_text2image
 from processors.process_huggingface import process_huggingface

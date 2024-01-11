@@ -2,7 +2,7 @@ import os
 import json
 import boto3
 import dotenv
-from config import config
+import config as config
 
 # Function to initialize environment variables from .env file
 def load_env():
