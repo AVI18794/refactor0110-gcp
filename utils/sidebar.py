@@ -40,7 +40,7 @@ def delete_repository_docs(repo_name):
 def invoke_lambda_function(function_name, payload):
     import boto3
     import json
-    lambda_client = boto3.client('lambda')
+    lambda_client = boto3.client('lambda', region_name='us-east-1')
     try:
         response = lambda_client.invoke(
             FunctionName=function_name,
