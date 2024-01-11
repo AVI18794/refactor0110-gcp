@@ -1,7 +1,7 @@
 import os
 import dotenv
 from openai import OpenAI  
-from ..config import config
+from config import config
 
 def get_openai_core_client():    
     print('call_openai_core')

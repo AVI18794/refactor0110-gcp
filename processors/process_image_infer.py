@@ -2,7 +2,7 @@ import os
 import dotenv
 import boto3
 from openai import OpenAI
-from ..config import config
+from config import config
 env_vars = dotenv.dotenv_values()
 for key in env_vars:
     os.environ[key] = env_vars[key]

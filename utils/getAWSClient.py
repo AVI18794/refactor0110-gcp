@@ -1,7 +1,7 @@
 import os
 import dotenv
 import boto3
-from ..config import config
+from config import config
 
 def get_aws_client(service_name):    
     print('get_aws_client')
