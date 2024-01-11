@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.11-slim
 EXPOSE 8080
 RUN pip install -U pip
 COPY requirements.txt app/requirements.txt
