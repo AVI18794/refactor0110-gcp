@@ -38,7 +38,7 @@ def invoke_lambda(lambda_name, data):
 
     # Check the response status code
     if lambda_response['StatusCode'] == 200:
-        return 200
+        return lambda_response
     else:
         raise Exception(f"AWS Lambda invocation failed with status code: {lambda_response['StatusCode']}")
 
