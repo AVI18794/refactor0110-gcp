@@ -1,7 +1,7 @@
 import os
 import dotenv
 import re
-from config import config
+from ..config import config
 
 dotenv.load_dotenv(".env")
 env_vars = dotenv.dotenv_values()

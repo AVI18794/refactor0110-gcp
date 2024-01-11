@@ -7,7 +7,7 @@ from utils.callLambda import invoke_lambda
 from utils.getAzureOpenAIClient import get_openai_azure_core_client
 from utils.getOpenAIClient import get_openai_core_client
 from utils.extractFilePaths import extract_distinct_file_paths
-from config import config
+from ..config import config
 
 from utils.format_source_paths import format_source_paths
    
