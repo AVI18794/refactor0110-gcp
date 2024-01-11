@@ -19,6 +19,7 @@ import pinecone
 import streamlit as st
 import pinecone
 from utils.callLambda import invoke_lambda
+from utils.logger import get_logger
 
 
 def is_valid_repo_name(name):
@@ -48,6 +49,8 @@ def update_repository_list(repo_list):
 def get_repository_list(domain_choice):
     import json
     response = invoke_lambda(QUERY_CONFIG_LAMBDA, {'configName': domain_choice})
+    logger_workbench = get_logger()
+    logger_workbench.log_text(response)
     print ("In get_repository_list response", response)
     # if response and 'statusCode' in response and response['statusCode'] == 200:
     #     # Parse the JSON string in the 'body' key
@@ -58,6 +61,7 @@ def get_repository_list(domain_choice):
     # if response and response['statusCode'] == 200:
         # Parse the JSON string in the 'body' key
     body = json.loads(response['body'])
+    logger_workbench.log_text(body)
     print ("In get_repository_list body", body)
     
     return body[0]['configValue']
