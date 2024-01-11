@@ -10,7 +10,7 @@ for key in env_vars:
 STATIC_ASSEST_BUCKET_URL = config.STATIC_ASSEST_BUCKET_URL
 STATIC_ASSEST_BUCKET_FOLDER = config.STATIC_ASSEST_BUCKET_FOLDER
 UPDATE_CONFIG_LAMBDA = config.UPDATE_CONFIG_LAMBDA
-QUERY_CONFIG_LAMBDA = os.getenv ('QUERY_CONFIG_LAMBDA')
+QUERY_CONFIG_LAMBDA = config.QUERY_CONFIG_LAMBDA
 SNOWBENCH_URL = os.getenv ('SNOWBENCH_URL')
 LOGO_NAME = config.LOGO_NAME
 OPENAI_CHOICE = config.OPENAI_CHOICE  
@@ -52,19 +52,15 @@ def get_repository_list(domain_choice):
     logger_workbench = get_logger()
     logger_workbench.log_text(response)
     print ("In get_repository_list response", response)
-    # if response and 'statusCode' in response and response['statusCode'] == 200:
-    #     # Parse the JSON string in the 'body' key
-    #     body = json.loads(response['body'])
-    #     if body and isinstance(body, list) and 'configValue' in body[0]:
-    #         return body[0]['configValue']
-    # return []
-    # if response and response['statusCode'] == 200:
+    if response and 'statusCode' in response and response['statusCode'] == 200:
         # Parse the JSON string in the 'body' key
-    body = json.loads(response['body'])
-    logger_workbench.log_text(body)
-    print ("In get_repository_list body", body)
+        body = json.loads(response['body'])
+        if body and isinstance(body, list) and 'configValue' in body[0]:
+            return body[0]['configValue']
+    return []
+   
     
-    return body[0]['configValue']
+  
   
 
   
