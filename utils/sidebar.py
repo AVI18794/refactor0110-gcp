@@ -46,14 +46,23 @@ def update_repository_list(repo_list):
     invoke_lambda(UPDATE_CONFIG_LAMBDA, {'configName': 'Banking', 'configValue': repo_list})
     
 def get_repository_list(domain_choice):
+    print ("In get_repository_list")
     import json
     response = invoke_lambda(QUERY_CONFIG_LAMBDA, {'configName': domain_choice})
-    if response and 'statusCode' in response and response['statusCode'] == 200:
+    print (response)
+    # if response and 'statusCode' in response and response['statusCode'] == 200:
+    #     # Parse the JSON string in the 'body' key
+    #     body = json.loads(response['body'])
+    #     if body and isinstance(body, list) and 'configValue' in body[0]:
+    #         return body[0]['configValue']
+    # return []
+    if response and response['statusCode'] == 200:
         # Parse the JSON string in the 'body' key
         body = json.loads(response['body'])
-        if body and isinstance(body, list) and 'configValue' in body[0]:
-            return body[0]['configValue']
-    return []
+        print (body)
+      
+        return body[0]['configValue']
+  
 
   
 
