@@ -11,7 +11,7 @@ STATIC_ASSEST_BUCKET_URL = config.STATIC_ASSEST_BUCKET_URL
 STATIC_ASSEST_BUCKET_FOLDER = config.STATIC_ASSEST_BUCKET_FOLDER
 UPDATE_CONFIG_LAMBDA = config.UPDATE_CONFIG_LAMBDA
 QUERY_CONFIG_LAMBDA = config.QUERY_CONFIG_LAMBDA
-SNOWBENCH_URL = os.getenv ('SNOWBENCH_URL')
+SNOWBENCH_URL = config.SNOWBENCH_URL
 LOGO_NAME = config.LOGO_NAME
 OPENAI_CHOICE = config.OPENAI_CHOICE  
 import pinecone
@@ -48,7 +48,7 @@ def update_repository_list(repo_list):
     
 def get_repository_list(domain_choice):
     import json
-    response = invoke_lambda(QUERY_CONFIG_LAMBDA, {'configName': domain_choice})
+    response = invoke_lambda('queryConfig', {'configName': domain_choice})
     logger_workbench = get_logger()
     logger_workbench.log_text(response)
     print ("In get_repository_list response", response)
