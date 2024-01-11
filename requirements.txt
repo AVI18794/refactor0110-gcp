@@ -17,4 +17,4 @@ requests==2.31.0
 streamlit_option_menu==0.3.6
 pandas
 pandasai
-google-cloud-secret-manager
+google-cloud-secret-manager==2.10.0
