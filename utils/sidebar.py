@@ -49,8 +49,8 @@ def update_repository_list(repo_list):
 def get_repository_list(domain_choice):
     import json
     response = invoke_lambda('queryConfig', {'configName': domain_choice})
-    logger_workbench = get_logger()
-    logger_workbench.log_text(response)
+    # logger_workbench = get_logger()
+    # logger_workbench.log_text(response)
     print ("In get_repository_list response", response)
     if response and 'statusCode' in response and response['statusCode'] == 200:
         # Parse the JSON string in the 'body' key
