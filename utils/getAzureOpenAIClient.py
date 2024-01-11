@@ -16,7 +16,7 @@ def get_openai_azure_core_client():
     client = AzureOpenAI(
         api_key=config.AZURE_OPENAI_API_KEY,  
         api_version=config.AZURE_OPENAI_VERSION,
-        azure_endpoint = config.AZURE_OPENAI_API_BASE
+        azure_endpoint = config.AZURE_OPENAI_ENDPOINT
     )   
 
     return client 
