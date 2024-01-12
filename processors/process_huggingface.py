@@ -2,13 +2,14 @@ from langchain.memory import ConversationBufferMemory
 from langchain import HuggingFaceHub
 from langchain.chains import ConversationChain
 import streamlit as st
+import json
+from langchain.prompts.prompt import PromptTemplate
+
+
+
+
 def process_huggingface(question, llm):
     print ('In process_hugging_face')
-    import json
-
-
-    from langchain.prompts.prompt import PromptTemplate
-
     template = """The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.
 
     Current conversation:
