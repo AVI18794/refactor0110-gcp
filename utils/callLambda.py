@@ -21,9 +21,6 @@ def load_env():
 def invoke_lambda(lambda_name, data):
     print ("In invoke_lambda")
     # load_env()
-
-
-
     # Initialize boto3 Lambda client
     lambda_client = boto3.client('lambda', aws_access_key_id=aws_access_key_id,
                                  aws_secret_access_key=aws_secret_access_key, 
