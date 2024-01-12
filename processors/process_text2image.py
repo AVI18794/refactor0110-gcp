@@ -4,18 +4,20 @@ from openai import OpenAI
 import streamlit as st
 import dotenv
 import config as config
+import requests
+from datetime import datetime
+
+OPENAI_API_KEY = config.OPENAI_API_KEY
+OPENAI_ORGANIZATION = config.OPENAI_ORGANIZATION
+
 def process_text2image (prompt):
     print ("In process_text2image")
-    import requests
-    from datetime import datetime
+    
     text2image_model_name = "dall-e-3"
     dotenv.load_dotenv(".env")
     env_vars = dotenv.dotenv_values()
     for key in env_vars:
         os.environ[key] = env_vars[key]
-        
-    OPENAI_API_KEY = config.OPENAI_API_KEY
-    OPENAI_ORGANIZATION = config.OPENAI_ORGANIZATION
     client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
    
     # user_prompt = "Generate a high-resolution, realistic image of a Mahindra Thar vehicle in a full and front-facing view. The scene should be captured as if photographed with a Canon high-quality camera. The backdrop should showcase majestic mountains, providing a picturesque setting. Pay attention to details such as lighting, reflections, and shadows to ensure a lifelike representation of the vehicle in this scenic environment."
