@@ -3,21 +3,11 @@ import boto3
 import json
 import dotenv
 import io
-
 import streamlit as st
-
 from openai import OpenAI
 import pandas as pd
-
 from langchain.vectorstores import Pinecone
 import pinecone
-
-max_bytes = 40000
-max_input_tokens_32k = 30000
-max_input_tokens_64k = 60000
-max_input_tokens_128k = 120000
-
-
 from utils.sidebar import create_sidebar
 from utils.initialize_session import initialize_session
 from utils.clear_session import clear_session
@@ -29,13 +19,29 @@ from utils.getAzureOpenAIClient import get_openai_azure_core_client
 from utils.getOpenAIClient import get_openai_core_client
 from utils.getAWSClient import get_aws_client
 from utils.extractFilePaths import extract_distinct_file_paths
-import config as config
-
 from processors.process_text2image import process_text2image
 from processors.process_huggingface import process_huggingface
 from processors.process_wikipedia import process_wikipedia
 from processors.process_openai import call_openai
 from processors.process_image_infer import upload_to_s3_refactor, generate_presigned_url, get_inference
+from langchain.text_splitter import RecursiveCharacterTextSplitter   
+from io import StringIO,BytesIO
+from langchain.document_loaders import Docx2txtLoader,UnstructuredPowerPointLoader,GitLoader,YoutubeLoader
+from langchain.agents import Tool, AgentExecutor,ConversationalChatAgent   
+from langchain_community.utilities import SerpAPIWrapper
+from langchain.chat_models import ChatOpenAI
+from langchain.memory import ConversationSummaryBufferMemory
+import PyPDF2
+import config as config
+
+
+
+max_bytes = 40000
+max_input_tokens_32k = 30000
+max_input_tokens_64k = 60000
+max_input_tokens_128k = 120000
+
+
 
 # dotenv.load_dotenv(".env")
 # env_vars = dotenv.dotenv_values()
@@ -154,7 +160,6 @@ if clear_button:
 
 
 def create_text_splitter(chunk_size, chunk_overlap):
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
     return RecursiveCharacterTextSplitter(
     chunk_size=chunk_size,
     chunk_overlap=chunk_overlap,
@@ -175,9 +180,7 @@ def transform_format_a_to_b(format_a):
     return documents
 
 def get_embedding(LLM_choice,text, model):
-    print ("In get_embedding")
-    import os
-    from openai import OpenAI        
+    print ("In get_embedding")     
     dotenv.load_dotenv(".env")
     env_vars = dotenv.dotenv_values()
     for key in env_vars:
@@ -298,8 +301,6 @@ def search_vector_store (LLM_choice, user_name_logged, source, user_input, model
 
 def process_csv_file(file_path):
     print ("In process_csv_file")
-    import pandas as pd
-    from io import StringIO
     aws_bucket = config.S3_BUCKET_NAME
     response = get_from_s3(aws_bucket, file_path)
   
@@ -339,7 +340,6 @@ def process_csv_file(file_path):
 
 def process_docx_file(file_path):
     print('Processing DOCX')
-    from langchain.document_loaders import Docx2txtLoader
     loader = Docx2txtLoader(file_path)
     docs = loader.load()
     for doc in docs:
@@ -357,7 +357,6 @@ def process_docx_file(file_path):
 def process_pptx_file(file_path):
     print('Processing PPTX')
     chunks = "dumy chunks"
-    from langchain.document_loaders import UnstructuredPowerPointLoader
     loader = UnstructuredPowerPointLoader(file_path)
     docs = loader.load()
     for doc in docs:
@@ -373,8 +372,6 @@ def process_pptx_file(file_path):
     return chunks
 
 def process_github(prompt):
-    from langchain.document_loaders import GitLoader
-
     loader = GitLoader(
         clone_url="https://github.com/langchain-ai/langchain",
         repo_path="./example_data/test_repo2/",
@@ -397,11 +394,7 @@ def process_google_search(prompt):
     else:
         print("SERPAPI_API_KEY key not found. Please make sure you have set the SERPAPI_API_KEY environment variable.")
     
-    from langchain.agents import Tool, AgentExecutor   
-    from langchain_community.utilities import SerpAPIWrapper
-    from langchain.agents import Tool,ConversationalChatAgent
-    from langchain.chat_models import ChatOpenAI
-    from langchain.memory import ConversationSummaryBufferMemory 
+    
 
     search = SerpAPIWrapper()
        
@@ -433,8 +426,7 @@ def process_google_search(prompt):
     return json_data
 
 def process_YTLinks(youtube_video_url, user_input):
-    print ('In process_YTLinks New', user_input) 
-    from langchain.document_loaders import YoutubeLoader  
+    print ('In process_YTLinks New', user_input)   
     loader = YoutubeLoader.from_youtube_url(youtube_video_url, add_video_info=False)
     
     youtube_transcript_list = loader.load()
@@ -502,7 +494,6 @@ def append_metadata(documents, file_path, repo_selected_for_upload, privacy_sett
         
 
 def process_pdf_file(file_content, file_path, repo_selected_for_upload, privacy_setting):
-    import PyPDF2
     print ('process_pdf_file privacy_setting: ', privacy_setting)
     pdf_stream = io.BytesIO(file_content)
     pdf_reader = PyPDF2.PdfReader(pdf_stream)
@@ -528,8 +519,7 @@ def process_xlsx_file(s3,aws_bucket, file_path):
     print ("In process_xlsx_file")
     response = s3.get_object(Bucket=aws_bucket, Key=file_path)
     excel_data = response['Body'].read()
-    from io import BytesIO
-    import pandas as pd
+    
 
 # Use BytesIO to convert the byte stream to a file-like object
     excel_file = BytesIO(excel_data)
@@ -687,10 +677,7 @@ def process_openai(LLM_choice, user_name_logged, source, prompt, model_name, max
 #     return resp
     
 def process_uploaded_file(uploaded_files,  persistence_choice, repo_selected_for_upload):
-    import json
     print('in process_uploaded_file')
-  
-  
     if len(uploaded_files) > 0:
         print(f'Number of files uploaded: {len(uploaded_files)}')
         docs_chunks = []  # Initialize docs_chunks list
@@ -753,8 +740,6 @@ def process_uploaded_file(uploaded_files,  persistence_choice, repo_selected_for
 
 def selected_data_sources(selected_sources, user_input, model_name, kr_repos_chosen, kr_repos_list, domain_choice) :
     print ("In selected_data_sources")
-    import json
-
     all_responses = []
     selected_elements_functions = {
        
