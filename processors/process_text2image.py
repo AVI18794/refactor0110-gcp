@@ -9,17 +9,20 @@ from datetime import datetime
 
 OPENAI_API_KEY = config.OPENAI_API_KEY
 OPENAI_ORGANIZATION = config.OPENAI_ORGANIZATION
+aws_access_key_id = config.AWS_ACCESS_KEY_ID
+aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
+aws_region = config.AWS_DEFAULT_REGION
+aws_bucket = config.S3_PUBLIC_ACCESS
+aws_bucket_input_path = config.S3_PUBLIC_ACCESS_PATH
 
 def process_text2image (prompt):
     print ("In process_text2image")
-    
     text2image_model_name = "dall-e-3"
     dotenv.load_dotenv(".env")
     env_vars = dotenv.dotenv_values()
     for key in env_vars:
         os.environ[key] = env_vars[key]
     client = OpenAI(organization = OPENAI_ORGANIZATION, api_key = OPENAI_API_KEY)
-   
     # user_prompt = "Generate a high-resolution, realistic image of a Mahindra Thar vehicle in a full and front-facing view. The scene should be captured as if photographed with a Canon high-quality camera. The backdrop should showcase majestic mountains, providing a picturesque setting. Pay attention to details such as lighting, reflections, and shadows to ensure a lifelike representation of the vehicle in this scenic environment."
     image_sizes = ["1024x1024", "1024x1792", "1792x1024"]
     # st.write ("Generating image...")
@@ -32,26 +35,18 @@ def process_text2image (prompt):
     )
     
     print (response)
-
     if hasattr(response, 'data') and response.data and hasattr(response.data[0], 'url'):
         item = response.data[0]
         image_url = item.url
         # item = response['data'][0]  # Assuming you want to generate only the first image
         # image_url = item['url']
-        
         file_name = "image" + datetime.now().strftime('%Y-%m-%d-%H-%M-%S') + ".png"
         dotenv.load_dotenv(".env")
         env_vars = dotenv.dotenv_values()
         for key in env_vars:
             os.environ[key] = env_vars[key]
-        aws_access_key_id = config.AWS_ACCESS_KEY_ID
-        aws_secret_access_key = config.AWS_SECRET_ACCESS_KEY
-        aws_region = config.AWS_DEFAULT_REGION
         
-            # Create an S3 client
-        
-        aws_bucket = config.S3_PUBLIC_ACCESS
-        aws_bucket_input_path = config.S3_PUBLIC_ACCESS_PATH
+        # Create an S3 client
         s3 = boto3.client("s3", aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=aws_region)
         image_data = requests.get(image_url).content
         s3.put_object(Body=image_data, Bucket=aws_bucket, Key=aws_bucket_input_path + "/" + file_name)
